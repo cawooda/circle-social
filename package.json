@@ -1,16 +1,19 @@
 {
-  "name": "circle",
+  "name": "circle social",
   "version": "1.0.0",
-  "description": "circle independent crm for service agreements",
+  "description": "circle social",
   "main": "index.js",
   "scripts": {
     "start": "node index",
     "dev": "nodemon index",
-    "seed": "node utils/seed"
+    "seed": "node seed/seed.js",
+    "watch": "nodemon index.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
+    "connect-mongo": "^5.1.0",
     "express": "^4.17.1",
+    "express-session": "^1.18.0",
     "mongoose": "^8.0.0"
   },
   "devDependencies": {
@@ -21,10 +24,7 @@
     "url": "git+https://github.com/cawooda/circle.git"
   },
   "keywords": [
-    "invoicing",
-    "crm",
-    "service",
-    "agreements"
+    "social"
   ],
   "author": "Andrew Cawood",
   "license": "MIT",

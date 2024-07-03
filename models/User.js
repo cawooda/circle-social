@@ -7,8 +7,7 @@ const { validateEmail } = require("../utils/helpers");
 const userSchema = new Schema(
   //first come the paths, like properties
   {
-    first: String,
-    last: String,
+    username: { type: String, trimmed: true },
     date_of_birth: Date,
     mobile: {
       type: String,
@@ -17,13 +16,21 @@ const userSchema = new Schema(
     },
     email: {
       type: String,
+      required: [true, "User phone number required"],
+      unique: true,
       toLowerCase: true,
       validate: {
         validator: validateEmail,
         message: "email did not pass validation",
       },
     },
+    friends: [{ type: Schema.Types.ObjectId, ref: "user" }],
+    thoughts: [{ type: Schema.Types.ObjectId, ref: "thought" }],
     password: String,
+    authenticate: {
+      authToken: String,
+      expires: { type: Date, default: Date.now },
+    },
     createdAt: {
       type: Date,
       immutable: true, //this prevents changes to the date once created
@@ -57,6 +64,18 @@ userSchema
     this.set({ first, last });
   });
 
+userSchema.pre("deleteOne", async function (next) {
+  const { Thought } = require("./index");
+  try {
+    console.log(Thought);
+    await Thought.deleteMany({ _id: { $in: this.thoughts } });
+    next();
+  } catch (error) {
+    console.error("Error while deleting thoughts", error);
+    next();
+  }
+});
+
 //This is some middleware intercpeting before a password is saved
 userSchema.pre("save", async function (next) {
   if (this.isModified("password") || this.isNew) {
@@ -69,6 +88,20 @@ userSchema.pre("save", async function (next) {
     }
     next();
   }
+});
+
+userSchema.methods.setAuthToken = function (token, duration) {
+  this.authenticate.authToken = token;
+  this.authenticate.expires = Date.now() + duration;
+  return this.save();
+};
+
+userSchema.methods.isAuthTokenExpired = function () {
+  return Date.now() < this.authenticate.expires;
+};
+
+userSchema.virtual("friendCount").get(function () {
+  return this.friends.length;
 });
 
 //initialise User Model. creates a collection called user based on the defined user schema

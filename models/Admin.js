@@ -5,7 +5,7 @@ const { Schema, model } = require("mongoose");
 const adminSchema = new Schema(
   //first come the paths, like properties
   {
-    user_id: {
+    user: {
       type: Schema.Types.ObjectId,
       ref: "user",
     },

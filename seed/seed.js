@@ -1,34 +1,45 @@
-//require the connection to database
+// seed.js
 const connection = require("../config/connection");
+const { User, Thought, Admin } = require("../models");
 
-//setup user
-const { User, Customer } = require("../models");
-const userSeed = require("./userSeed.json");
-const customerSeed = require("./customerSeed.json");
+// const userData = require("./userData.json");
+// const thoughtData = require("./thoughtData.json");
 
-//set the callback to occur once the connection opens
+const { userData, thoughtData, adminData } = require("./seedData");
+
+console.time("seeding");
+// Set the callback to occur once the connection opens
+
 connection.once("open", async () => {
-  // check if the collections exist
-  let userCheck = await connection.db
-    .listCollections({ name: "users" })
-    .toArray();
-  //check if users exists
-  if (userCheck.length) {
-    await connection.dropCollection("users");
-  }
-  // insert the data into the database
-  users = await User.insertMany(userSeed);
+  // Check if the collections exist and drop them if they do
+  const collections = ["users", "thoughts", "comments", "admins"];
 
-  //check if collection exists
-  let customerCheck = await connection.db
-    .listCollections({ name: "customers" })
-    .toArray();
-
-  if (customerCheck.length) {
-    await connection.dropCollection("customers");
+  for (let collection of collections) {
+    let check = await connection.db
+      .listCollections({ name: collection })
+      .toArray();
+    if (check.length) {
+      await connection.dropCollection(collection);
+    }
   }
 
-  customers = await Customer.insertMany(customerSeed);
-  console.table(users);
-  console.table(customers);
+  // Seed the collections
+  try {
+    const users = await User.insertMany(userData);
+    const thoughts = await Thought.insertMany(thoughtData);
+
+    const admins = await Admin.insertMany(adminData);
+
+    const getUsers = await User.find().populate();
+    const getThoughts = await Thought.find().populate("user");
+
+    console.log("Users seeded:", getUsers);
+    console.log("Thoughts seeded:", getThoughts);
+
+    console.timeEnd("seeding complete 🌱");
+  } catch (err) {
+    console.error(err);
+  } finally {
+    process.exit(0);
+  }
 });
