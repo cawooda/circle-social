@@ -69,13 +69,16 @@ getSingleThought = async (req, res) => {
 createThought = async (req, res) => {
   console.log("reached create thought");
   const userId = req.params.userId;
+  console.log(userId);
   const { thoughtText } = req.body;
-
+  console.log(thoughtText);
   let username;
-
   try {
-    user = await User.findOne({ _id: userId });
+    const user = await User.findOne({ _id: userId });
+    console.log("user", user);
     username = user.username;
+    console.log("username", username);
+    //username = user.username;
     console.log(user);
     console.log(thoughtText);
     if (!username || !thoughtText) {

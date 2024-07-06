@@ -148,13 +148,15 @@ delete a reaction based on the thoughtId and set the username
 
 ### Screenshot
 
-![alt text](./assets/images/screenshot.png)
+![alt text](./screenshot.png)
 
 ## Features
 
-## Guidelines
-
-## Testing
+Enpoints for major entities:
+Users
+Thoughts
+Reactions
+Friends
 
 ## Questions
 
