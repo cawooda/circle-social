@@ -47,47 +47,64 @@ getSingleThought = async (req, res) => {
   try {
     const thought = await Thought.findOne({
       _id: req.params.thoughtId,
-    }).select("-__v");
+    })
+      .select("-__v")
+      .populate();
     //handle situations where a thought doesent exust by that id
     if (!thought) {
       return res.status(404).json({
         message: "No Thought with that Id",
         idRecieved: req.params.thoughtId,
       });
+    } else {
+      //return the thought
+      const data = { data: thought, actions };
+      res.json(data);
     }
-    //return the thought
-    const data = { data: thought, actions };
-    res.json(data);
   } catch (err) {
     res.status(500).json(err);
   }
 };
 
 createThought = async (req, res) => {
-  const user = req.params.userId;
+  console.log("reached create thought");
+  const userId = req.params.userId;
+  const { thoughtText } = req.body;
+
   let username;
+
   try {
-    username = await User.findOne({ _id: user });
+    user = await User.findOne({ _id: userId });
+    username = user.username;
+    console.log(user);
+    console.log(thoughtText);
+    if (!username || !thoughtText) {
+      console.log("reached create thought");
+      return res
+        .status(200)
+        .json({ message: "user and content required for thoughting" });
+    }
   } catch (error) {
     console.log(error);
     res
-      .satus(400)
-      .json({ message: "error finding user to create thought for", actions });
+      .status(400)
+      .json({ message: "error finding user to create thought for", actions })
+      .end();
   }
-  const { content, img_url } = req.body;
-  //extract the items from the body
-  if (!user || !content) {
-    return res
-      .status(200)
-      .json({ message: "user and content required for thoughting" });
-  }
+  //begin creating the thought
   try {
     const dbThoughtData = await Thought.create({
       username,
-      content,
-      img_url: img_url ? img_url : "",
+      thoughtText,
     });
     dbThoughtData.save();
+    // update the users array of thoughts
+    await User.findOneAndUpdate(
+      { username: username },
+      { $addToSet: { thoughts: dbThoughtData._id } },
+      { new: true }
+    );
+    // prepare and send the data back
     const data = { data: dbThoughtData, actions };
     res.json(data);
   } catch (error) {

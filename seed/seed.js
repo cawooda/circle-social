@@ -5,7 +5,7 @@ const { User, Thought, Admin } = require("../models");
 // const userData = require("./userData.json");
 // const thoughtData = require("./thoughtData.json");
 
-const { userData, thoughtData, adminData } = require("./seedData");
+const { userData, thoughtData, adminData } = require("./seedData2");
 
 console.time("seeding");
 // Set the callback to occur once the connection opens
@@ -28,10 +28,8 @@ connection.once("open", async () => {
     const users = await User.insertMany(userData);
     const thoughts = await Thought.insertMany(thoughtData);
 
-    const admins = await Admin.insertMany(adminData);
-
     const getUsers = await User.find().populate();
-    const getThoughts = await Thought.find().populate("user");
+    const getThoughts = await Thought.find().populate("username");
 
     console.log("Users seeded:", getUsers);
     console.log("Thoughts seeded:", getThoughts);

@@ -77,7 +77,8 @@ getSingleUser = async (req, res) => {
   console.log(`ObjectId(${req.params.userId})`);
   if (
     req.session.loggedIn &&
-    `ObjectId(${req.session.userId}` == `ObjectId(${req.params.userId}`
+    (`ObjectId(${req.session.userId}` == `ObjectId(${req.params.userId}` ||
+      req.session.admin)
   ) {
     console.log("its a match");
     try {
@@ -88,13 +89,10 @@ getSingleUser = async (req, res) => {
         return res.status(404).json({ message: "No User with that Id" });
       }
       //return the user
-      const data = {
-        id: user._id,
-        first: user.first,
-        last: user.last,
-        email: user.email,
-      };
-      res.json({ data, actions });
+      const data = { data: user };
+      res
+        .status(200)
+        .json({ message: "success, here is your user:", data, actions });
     } catch (err) {
       res.status(500).json(err);
     }
@@ -114,17 +112,28 @@ getSingleUser = async (req, res) => {
 };
 
 createUser = async (req, res) => {
-  const { first, last, email, password } = req.body;
+  const { first, last, username, email, password } = req.body;
   //extract the items from the body
-  if (!first || !last || !email || !password) {
+  if (!first || !last || !username || !email || !password) {
     return res
       .status(400)
       .json({ message: "need name, email and password for user creation" });
   }
   try {
-    const dbUserData = await User.create({ first, last, email, password });
+    const dbUserData = await User.create({
+      first,
+      last,
+      username,
+      email,
+      password,
+    });
     dbUserData.save();
-    res.json({ dbUserData, actions });
+    res.json({
+      message: "user successfully created",
+      data: { dbUserData },
+      actions,
+    });
+    console.log("user successfully created", dbUserData);
   } catch (error) {
     console.log(error);
     res.status(500).json(error);
@@ -171,15 +180,19 @@ deleteUser = async (req, res) => {
   const body = req.body;
 };
 
-loginUser = async (req, res) => {
+loginUser = async (req, res, next) => {
   const { email, password } = req.body;
 
   console.log("reached");
   console.log("body", req.body);
   try {
-    const userData = await User.findOne({
-      email: email,
-    });
+    const userData = await User.findOne(
+      {
+        email: email,
+      },
+      {},
+      { new: true }
+    );
     if (userData) {
       await bcrypt.compare(password, userData.password, (err, result) => {
         if (err) {
@@ -190,8 +203,10 @@ loginUser = async (req, res) => {
             .json({ message: "sorry password didnt match", actions });
         } else if (result) {
           req.session.loggedIn = true;
+          req.session.admin = true;
           req.session.userId = userData._id;
           res.status(200).json({ message: "logged in successfully", actions });
+          next();
         } else {
           req.session.loggedIn = false;
           req.session.userId = "";
@@ -199,8 +214,9 @@ loginUser = async (req, res) => {
         }
       });
     } else res.status(404).json({ message: "user not found", actions });
-    console.log("logged in status", req.session.loggedIn);
-    console.log("user id ", req.session.userId);
+    console.log("logged in user", userData);
+    console.log("logged in session status", req.session.loggedIn);
+    console.log("user session id ", req.session.userId);
   } catch (err) {
     console.log(err);
   }
@@ -218,30 +234,30 @@ logoutUser = async (req, res) => {
 authenticateUser = async (req, res) => {
   const { token, userId } = req.body;
   if (token && userId) {
-    console.log(token);
-    console.log(userId);
     try {
       const user = await User.findById(req.params.userId);
-      console.log(user);
-      console.log(token);
-
-      if (user.isAuthTokenExpired()) {
-        res.status(403).json({ message: "forbidden, token expired", actions });
+      if (user.checkToken(token)) {
+        req.session.authenticated = true;
+        console.log("session", req.session.authenticated);
+        res.status(200).json({
+          auth: req.session.authenticated,
+          message: "successfully authenticated",
+          actions,
+        });
       } else {
-        console.log(user.isAuthTokenExpired());
-        console.log(user.authenticate);
-        if (user.authenticate.authToken === token) {
-          req.session.authenticated = true;
-          console.log(req.session.authenticated);
-          res.status(200).json({
-            auth: req.session.authenticated,
-            message: "successfully authenticated",
-            actions,
-          });
-        }
+        res.status(404).json({
+          auth: req.session.authenticated,
+          message: "authen token didnt work",
+          actions,
+        });
       }
     } catch (err) {
       console.log(err);
+      res.status(404).json({
+        auth: req.session.authenticated,
+        message: "authen token didnt work",
+        actions,
+      });
     }
   } else {
     try {
@@ -250,10 +266,8 @@ authenticateUser = async (req, res) => {
       const number = user.mobile;
       const token = generateToken();
       const link = `${process.env.DOMAIN}/api/users/auth/token/${token}`;
-      const message = `circle authenticate request. Please follow link to authenticate:${link}`;
-      user.updateOne({ authenticate: { authToken: token } });
-      user.authenticate.authToken = token;
-      user.save();
+      const message = `circle authenticate request. Secret number is ${token}. Please follow link to authenticate:${link}`;
+      await user.updateToken(token);
       console.log(user);
       console.log(token);
       sendText(number, message, "Circle");
@@ -268,7 +282,68 @@ authenticateUser = async (req, res) => {
   }
 };
 
-authenticateToken = async (req, res) => {};
+addFriend = async (req, res) => {
+  const userId = req.params.userId;
+  const friendId = req.params.friendId;
+
+  try {
+    const user = await User.findById(userId);
+    if (await user.addFriend(friendId)) {
+      res.status(200).json({
+        message: "friend added we think",
+        user,
+        actions,
+      });
+    } else {
+      res.status(404).json({
+        message:
+          "we think that the user or friend couldnt be found or that the fried you gave us is already on the user friend list",
+        user,
+        actions,
+      });
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(404).json({
+      error,
+      message:
+        "an error happened trying to add a friend to a users friends list",
+      actions,
+    });
+  }
+};
+
+removeFriend = async (req, res) => {
+  const userId = req.params.userId;
+  const friendId = req.params.friendId;
+  console.log(userId);
+  console.log(friendId);
+  try {
+    const user = await User.findById(userId);
+    if (await user.removeFriend(friendId)) {
+      res.status(200).json({
+        message: "friend removed we think",
+        user,
+        actions,
+      });
+    } else {
+      res.status(404).json({
+        message:
+          "we think that the user or friend couldnt be found or that the fried you gave us wasnt on the list",
+        user,
+        actions,
+      });
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(404).json({
+      error,
+      message:
+        "an error happened trying to add a friend to a users friends list",
+      actions,
+    });
+  }
+};
 
 module.exports = {
   getUsers,
@@ -277,5 +352,6 @@ module.exports = {
   modifyUser,
   loginUser,
   logoutUser,
-  authenticateUser,
+  addFriend,
+  removeFriend,
 };

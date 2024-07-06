@@ -8,7 +8,8 @@ const {
   createUser,
   modifyUser,
   logoutUser,
-  authenticateUser,
+  addFriend,
+  removeFriend,
 } = require("../../controllers/userController");
 
 //logout user
@@ -22,7 +23,14 @@ router.route("/auth/token/:userId").post(authenticateUser);
 //all users -> create and get
 router.route("/").post(createUser).get(getUsers);
 //single user -> modify and get
+router
+  .route("/:userId/friends/:friendId")
+  .post(addFriend) // For adding a friend
+  .delete(removeFriend);
+
 router.route("/:userId").put(modifyUser).get(getSingleUser).delete(deleteUser);
 //login user
+
+//Friends
 
 module.exports = router;

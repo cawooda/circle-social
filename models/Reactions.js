@@ -12,7 +12,7 @@ const reactionSchema = new Schema(
       required: true,
     },
     reactionBody: { type: String, required: true, maxLength: 280 },
-    userName: { type: String, required: true },
+    userName: { type: String, required: true, toLowerCase: true },
     createdAt: {
       type: Date,
       immutable: true, //this prevents changes to the date once created

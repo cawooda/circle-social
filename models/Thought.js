@@ -5,7 +5,7 @@ const reactionSchema = require("./Reactions");
 const thoughtSchema = new Schema(
   //first come the paths, like properties
   {
-    thoughtText: String,
+    thoughtText: { type: String, required: true },
     username: { type: String, required: true },
     reactions: [reactionSchema],
     createdAt: {
@@ -42,10 +42,9 @@ thoughtSchema.pre("deleteOne", async function (next) {
   const { User } = require("./index");
   try {
     console.log(User);
-    //await User.deleteMany({ _id: { $in: this.thoughts } });
-    console.log(
-      "need to work out logic for deleting each user that connects via username of thought"
-    );
+    const user = User.find({ username: this.username });
+    user.updateOne({}, { $pull: { thoughts: this._id } });
+    console.log(user);
     next();
   } catch (error) {
     console.error("Error while deleting thoughts", error);

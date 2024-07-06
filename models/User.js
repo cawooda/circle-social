@@ -2,6 +2,8 @@ const bcrypt = require("bcrypt");
 //import the Schema and model from mongoose.
 const { Schema, model } = require("mongoose");
 const { validateEmail } = require("../utils/helpers");
+const dayjs = require("dayjs");
+const TOKEN_EXPIREY_TIME = 9000000;
 
 //definde the user model schema
 const userSchema = new Schema(
@@ -28,8 +30,8 @@ const userSchema = new Schema(
     thoughts: [{ type: Schema.Types.ObjectId, ref: "thought" }],
     password: String,
     authenticate: {
-      authToken: String,
-      expires: { type: Date, default: Date.now },
+      authToken: { type: String },
+      isExpired: { type: Boolean, required: true, default: true },
     },
     createdAt: {
       type: Date,
@@ -90,15 +92,64 @@ userSchema.pre("save", async function (next) {
   }
 });
 
-userSchema.methods.setAuthToken = function (token, duration) {
+userSchema.method("updateToken", function (token) {
   this.authenticate.authToken = token;
-  this.authenticate.expires = Date.now() + duration;
+  this.authenticate.isExpired = false;
+  setTimeout(() => {
+    console.log("interval");
+    this.authenticate.authToken = "";
+    this.authenticate.isExpired = true;
+  }, TOKEN_EXPIREY_TIME);
   return this.save();
-};
+});
 
-userSchema.methods.isAuthTokenExpired = function () {
-  return Date.now() < this.authenticate.expires;
-};
+userSchema.method("checkToken", function (token) {
+  console.log("this", this);
+  console.log("this", this.authenticate.authToken);
+  console.log("this", this.authenticate.isExpired);
+
+  if (
+    this.authenticate.authToken == token &&
+    this.authenticate.authToken != "" &&
+    !this.authenticate.isExpired
+  ) {
+    console.log("looking good");
+    this.authenticate.token = "";
+    this.authenticate.isExpired = true;
+    this.save();
+    return true;
+  } else {
+    console.log("looks like we didnt get a match");
+    this.authenticate.token = "";
+    this.authenticate.isExpired = true;
+    this.save();
+    return false;
+  }
+});
+
+userSchema.method("addFriend", function (friendId) {
+  if (this.friends.indexOf(friendId) == -1) {
+    this.friends.push(friendId);
+    this.save();
+    return true;
+  } else {
+    console.log("friend already in");
+    return false;
+  }
+});
+
+userSchema.method("removeFriend", function (friendId) {
+  if (this.friends.indexOf(friendId) > -1) {
+    this.friends = this.friends.filter((friend) => {
+      return friend == friendId ? false : true;
+    });
+    this.save();
+    return true;
+  } else {
+    console.log("friend already gone");
+    return false;
+  }
+});
 
 userSchema.virtual("friendCount").get(function () {
   return this.friends.length;
